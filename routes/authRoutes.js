@@ -27,7 +27,7 @@ router.post("/login", async (req, res) => {
 const auth = require("../middleware/authMiddleware");
 
 router.get("/me", auth, async (req, res) => {
-  const user = await User.findById(req.user.id).select("name email totalMana");
+  const user = await User.findById(req.user.id).select("name email totalMana pendingMana");
   res.json(user);
 });
 
