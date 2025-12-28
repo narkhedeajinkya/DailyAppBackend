@@ -2,8 +2,11 @@
 const express = require("express");
 const Task = require("../models/Task");
 const DailyTask = require("../models/DailyTask");
+const User = require("../models/User"); 
 const auth = require("../middleware/authMiddleware");
+const { updateStreak } = require("../utils/streak");
 const router = express.Router();
+
 
 router.post("/", auth, async (req, res) => {
   const task = await Task.create({
@@ -29,17 +32,60 @@ router.post("/assign", auth, async (req, res) => {
 });
 
 router.patch("/:id/complete", auth, async (req, res) => {
-  const task = await DailyTask.findById(req.params.id);
-  task.status = "completed";
+  const dailyTask = await DailyTask.findById(req.params.id);
+  if (!dailyTask) {
+    return res.status(404).json({ error: "Daily task not found" });
+  }
+
+  dailyTask.status = "completed";
+  const task = await Task.findById(dailyTask.taskId);
+  if (!task) {
+    return res.status(404).json({ error: "Task not found" });
+  }
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  const { weeklyBonusTriggered } = updateStreak(task);
+  if (typeof user.pendingMana !== "number") {
+    user.pendingMana = 0;
+  }
+  const baseMana = Number(task.mana) || 0;
+  user.pendingMana += baseMana;
+
+  if (weeklyBonusTriggered) {
+    user.pendingMana += baseMana * 2;
+  }
++  await dailyTask.save();
   await task.save();
-  res.json(task);
+  await user.save();
+
+  res.json({
+    dailyTask,
+    weeklyBonusTriggered,
+    pendingMana: user.pendingMana
+  });
 });
 
+
 router.get("/today", auth, async (req, res) => {
-  const today = new Date().toISOString().slice(0,10);
-  const tasks = await DailyTask.find({ userId: req.user.id, date: today });
-  res.json(tasks);
+  try {
+    const userId = req.user.id; 
+    const today = new Date().toISOString().slice(0, 10);
+
+    const tasks = await DailyTask.find({ userId, date: today })
+      .populate({
+        path: "taskId",
+        select: "title mana streak"
+      });
+
+    res.json(tasks);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load tasks" });
+  }
 });
+
 
 router.get("/", auth, async (req, res) => {
   const tasks = await Task.find({ userId: req.user.id });
