@@ -5,7 +5,6 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 
 connectDB();
-require("./cron/dailyManaJob");
 
 const app = express();
 app.use(cors());
