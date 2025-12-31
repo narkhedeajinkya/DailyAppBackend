@@ -1,4 +1,5 @@
 // cron/dailyManaJob.js
+// not used can be used when deployed on real production grade servers
 const cron = require("node-cron");
 const User = require("../models/User");
 
@@ -11,7 +12,6 @@ cron.schedule("59 23 * * *", async () => {
       user.pendingMana = 0;
       await user.save();
     }
-
     console.log("✅ Daily mana settlement completed");
   } catch (err) {
     console.error("❌ Daily mana settlement failed", err);
